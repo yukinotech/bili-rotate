@@ -1,11 +1,11 @@
 // ==UserScript==
 // @author          yukinotech
 // @namespace       yukinotech
-// @name            bilibili 视频旋转
+// @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
 // @version         1.0
-// @description     bilibili 视频旋转插件
-// @description:en  bilibili player rotate plugin
+// @description     bilibili 视频 旋转 插件
+// @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
 // @license MIT
 // ==/UserScript==

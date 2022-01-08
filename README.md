@@ -2,7 +2,7 @@
 
 ## 安装指南
 
-使用油猴脚本（tampermonkey）安装，安装地址
+使用油猴脚本（tampermonkey）安装，安装地址  https://greasyfork.org/zh-CN/scripts/438224-bilibili-%E8%A7%86%E9%A2%91%E6%97%8B%E8%BD%AC
 
 ## 使用说明
 
