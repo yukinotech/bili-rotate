@@ -3,7 +3,7 @@
 // @namespace       yukinotech
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.3
+// @version         1.0.4
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -127,7 +127,7 @@
 
   // 播放器父元素的大小发生变化时，处理宽高
   let observer = new MutationObserver((mutationList) => {
-    console.log("videoWrap", videoWrap)
+    console.log("mutationList", mutationList)
 
     let { height, width } = window.getComputedStyle(videoWrap)
     // 非旋转，deg即为当前状态
@@ -145,13 +145,24 @@
     console.log("observer height", height)
     console.log("observer width", width)
     console.log("observer deg", deg)
-
-    buttonInit()
   })
 
   observer.observe(playerStyleTag, {
-    childList: true, // 观察目标子节点的变化，是否有添加或者删除
-    attributes: true, // 观察属性变动
-    subtree: true, // 观察后代节点，默认为 false
+    childList: true,
+    attributes: true,
+    subtree: true,
+  })
+
+  let videoSwitchObserver = new MutationObserver((mutationList) => {
+    console.log("videoSwitchObserver")
+    ;(async () => {
+      await videoInit()
+      await buttonInit()
+    })()
+  })
+
+  videoSwitchObserver.observe(document.getElementById("bilibili-player"), {
+    childList: true,
+    attributes: true,
   })
 })()
