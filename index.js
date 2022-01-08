@@ -3,7 +3,7 @@
 // @namespace       yukinotech
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.1
+// @version         1.0.2
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -128,10 +128,18 @@
   buttonDiv.style.margin = "3px 6px"
   buttonDiv.style.cursor = "pointer"
   buttonDiv.innerHTML = buttonSvg
+  buttonDiv.id = "rotate-button"
   console.log("beforeinsert")
   controlRight.insertBefore(buttonDiv, controlRight.childNodes[6])
   console.log("after")
   buttonDiv.addEventListener("click", rotate)
 
   console.log("rotate init end")
+
+  setTimeout(() => {
+    if (!document.getElementById("rotate-button")) {
+      // 存在b站在脚本的初始化之后执行，覆盖脚本，加一次兜底
+      controlRight.insertBefore(buttonDiv, controlRight.childNodes[6])
+    }
+  }, 5000)
 })()
