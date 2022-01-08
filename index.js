@@ -3,7 +3,7 @@
 // @namespace       yukinotech
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0
+// @version         1.0.1
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
