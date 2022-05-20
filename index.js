@@ -1,6 +1,7 @@
 // ==UserScript==
 // @author          yukinotech
 // @namespace       yukinotech
+// @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
 // @version         1.0.5
