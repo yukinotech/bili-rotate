@@ -3,7 +3,7 @@
 // @namespace       yukinotech
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.4
+// @version         1.0.5
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -29,52 +29,120 @@
       c()
     })
   }
+  let getNumFromPx = (pxStr) => {
+    return Number(pxStr.replace("px", ""))
+  }
+  let numToPx = (num) => {
+    return String(num.toFixed(2)) + "px"
+  }
   // ****** 全局初始化  ******
   let playerStyleTag = await waitToGet(() => {
     return document.getElementById("setSizeStyle")
   }, 600)
   // ****** video 旋转处理部分 ******
-  let video, videoWrap, realVideo, deg
-  let videoInit = async () => {
-    video = await waitToGet(() => {
-      return document.getElementsByClassName("bilibili-player-video")?.[0]
-    }, 600)
-    console.log(video, 1)
+  // 使用全局变量，因为会出现页面内刷新的情况，变量需要实时指向最新的dom标签，便于赋值刷新
+  // 页面层级结构： 1、变量名:dom名  2、外层->里层
+  // videoWrap:div -> video:div -> realVideo:video || realVideo:bwp-video
 
+  // videoWrap：包裹player的最外层div
+  let videoWrap
+  // video：包裹player的中层div
+  let video
+  // realVideo：实际video标签，或者bwp-video标签
+  let realVideo
+  // deg：旋转角度
+  let deg
+  // realVideo_H_W_Ratio：视频原始高比宽
+  let realVideo_H_W_Ratio
+
+  // video逻辑初始化部分
+  let videoInit = async () => {
     videoWrap = await waitToGet(() => {
       return document.getElementsByClassName("bilibili-player-video-wrap")?.[0]
     }, 600)
 
+    video = await waitToGet(() => {
+      return document.getElementsByClassName("bilibili-player-video")?.[0]
+    }, 600)
+
     realVideo = video.childNodes[0]
 
-    // videoWrap:div -> video:div -> realVideo:video
     video.style.height = "100%"
     video.style.width = "100%"
     video.style.display = "flex"
     video.style["justify-content"] = "center"
-    video.style["align-items"] = "center"
-    video.style.margin = "0"
-    video.style.padding = "0"
+
+    realVideo.style.margin = "0"
+    realVideo.style.padding = "0"
+    realVideo.style["object-fit"] = "contain"
+    realVideo.style.height = "auto"
+    realVideo.style.width = "auto"
+
+    let { height: videoContainerHeight, width: videoContainerWidth } =
+      window.getComputedStyle(video)
+    let { height: realVideoHeight, width: realVideoWidth } =
+      window.getComputedStyle(realVideo)
+    realVideo_H_W_Ratio =
+      getNumFromPx(realVideoHeight) / getNumFromPx(realVideoWidth)
+    if (realVideo_H_W_Ratio >= 1) {
+      // 原始视频是竖屏
+      realVideo.style["max-height"] = "none"
+    } else {
+      // 原始视频是横屏
+      console.log("222222222222222222222")
+      realVideo.style["width"] = "100%"
+    }
+    console.log("realVideoHeight", realVideoHeight)
+    console.log("realVideoWidth", realVideoWidth)
+    console.log("videoContainerHeight", videoContainerHeight)
+    console.log("videoContainerWidth", videoContainerWidth)
     // deg 标记旋转角度
     deg = 0
   }
-  // 旋转时处理宽高
+  // 旋转时回调函数
   let rotate = () => {
     deg = (deg + 90) % 360
-    realVideo.style.transform = `rotate(${deg}deg)`
-    let { height, width } = window.getComputedStyle(videoWrap)
-    // 旋转，deg为下一状态
-    if (deg === 90 || deg === 270) {
-      realVideo.style.width = height
-    } else {
-      realVideo.style.width = width
-      realVideo.style.height = height
-    }
-    console.log("rotate height", height)
-    console.log("rotate width", width)
-    console.log("rotate deg", deg)
+    resetHW()
   }
+  // 重置宽高
+  let resetHW = () => {
+    let { height: videoContainerHeight, width: videoContainerWidth } =
+      window.getComputedStyle(video)
+    let videoContainerHeightNum = getNumFromPx(videoContainerHeight)
+    let videoContainerWidthNum = getNumFromPx(videoContainerWidth)
 
+    // deg 为当前角度状态
+    if (deg === 90 || deg === 270) {
+      // console.log("realVideo_H_W_Ratio", realVideo_H_W_Ratio)
+      if (realVideo_H_W_Ratio < 1) {
+        // 原始视频是横屏
+        realVideo.style.transform = `rotate(${deg}deg)`
+        realVideo.style.width = videoContainerHeight
+      } else {
+        // 原始视频是竖屏
+        realVideo.style.height = videoContainerWidth
+        realVideo.style.width = numToPx(
+          videoContainerWidthNum / realVideo_H_W_Ratio
+        )
+        let offsetY = numToPx(
+          (videoContainerWidthNum - videoContainerHeightNum) / -2
+        )
+        realVideo.style.transform = `translate(0,${offsetY}) rotate(${deg}deg)`
+      }
+    } else {
+      if (realVideo_H_W_Ratio < 1) {
+        // 原始视频是横屏
+        realVideo.style.width = videoContainerWidth
+        realVideo.style.transform = `rotate(${deg}deg)`
+      } else {
+        // 原始视频是竖屏
+        realVideo.style.height = "auto"
+        realVideo.style.width = "auto"
+        realVideo.style.transform = `rotate(${deg}deg)`
+      }
+    }
+  }
+  // 按钮初始化部分
   let buttonInit = async () => {
     // 找到播放底栏父元素
     let controlRight = await waitToGet(() => {
@@ -83,9 +151,8 @@
       )?.[0]
     }, 600)
 
-    console.log("controlRight", controlRight)
+    // 调试用代码 begin ：强制底栏常驻
 
-    // 调试使用，强制底栏常驻
     // let controlBottom = await waitToGet(() => {
     //   return document.getElementsByClassName(
     //     "bilibili-player-video-control-bottom"
@@ -94,6 +161,8 @@
 
     // controlBottom.style.opacity = "1"
     // controlBottom.style.visibility = "visible"
+
+    // 调试用代码 end ：强制底栏常驻
 
     // 构造button div，绑定事件，并插入文档
     let buttonSvg = `<svg viewBox="0 0 1536 1536" aria-labelledby="rwsi-awesome-repeat-title" id="si-awesome-repeat" width="100%" height="100%"><title id="rwsi-awesome-repeat-title">icon repeat</title><path d="M1536 128v448q0 26-19 45t-45 19h-448q-42 0-59-40-17-39 14-69l138-138Q969 256 768 256q-104 0-198.5 40.5T406 406 296.5 569.5 256 768t40.5 198.5T406 1130t163.5 109.5T768 1280q119 0 225-52t179-147q7-10 23-12 14 0 25 9l137 138q9 8 9.5 20.5t-7.5 22.5q-109 132-264 204.5T768 1536q-156 0-298-61t-245-164-164-245T0 768t61-298 164-245T470 61 768 0q147 0 284.5 55.5T1297 212l130-129q29-31 70-14 39 17 39 59z"></path></svg>`
@@ -105,11 +174,11 @@
     buttonDiv.style.cursor = "pointer"
     buttonDiv.innerHTML = buttonSvg
     buttonDiv.id = "rotate-button"
-    console.log("beforeinsert")
+    // console.log("beforeinsert")
     if (!document.getElementById("rotate-button")) {
       controlRight.insertBefore(buttonDiv, controlRight.childNodes[6])
     }
-    console.log("after")
+    // console.log("after")
     buttonDiv.addEventListener("click", rotate)
 
     console.log("rotate init end")
@@ -122,45 +191,52 @@
     }, 5000)
   }
 
+  // ****** 第一次实际执行部分 ******
+
   await videoInit()
   await buttonInit()
 
-  // 播放器父元素的大小发生变化时，处理宽高
-  let observer = new MutationObserver((mutationList) => {
-    console.log("mutationList", mutationList)
+  // ****** 监听部分 ******
 
-    let { height, width } = window.getComputedStyle(videoWrap)
-    // 非旋转，deg即为当前状态
-    if (deg === 0 || deg === 180) {
-      // 这里b站会自动重置，video的宽高，可以加延迟解决
-      setTimeout(() => {
-        realVideo.style.width = width
-        realVideo.style.height = height
-      }, 100)
-    } else {
-      setTimeout(() => {
-        realVideo.style.width = height
-      }, 100)
-    }
-    console.log("observer height", height)
-    console.log("observer width", width)
-    console.log("observer deg", deg)
+  // 播放器父元素的大小发生变化时，处理宽高 回调
+  let observer = new MutationObserver((mutationList) => {
+    console.log("播放器的大小change", mutationList)
+    // 这里b站会自动重置css，包括video的宽高，可以加延迟解决
+    setTimeout(() => {
+      resetHW()
+    }, 100)
+
+    // 调试用代码 begin
+
+    // let { height: videoContainerHeight, width: videoContainerWidth } =
+    //   window.getComputedStyle(video)
+    // let { height: realVideoHeight, width: realVideoWidth } =
+    //   window.getComputedStyle(realVideo)
+    // console.log("realVideoHeight", realVideoHeight)
+    // console.log("realVideoWidth", realVideoWidth)
+    // console.log("videoContainerHeight", videoContainerHeight)
+    // console.log("videoContainerWidth", videoContainerWidth)
+
+    // 调试用代码 end
   })
 
+  // 监听播放器父元素的大小发生变化
   observer.observe(playerStyleTag, {
     childList: true,
     attributes: true,
     subtree: true,
   })
 
+  // 播放列表里切换视频时，b站会初始化播放器。此处为初始化播放器的回调
   let videoSwitchObserver = new MutationObserver((mutationList) => {
-    console.log("videoSwitchObserver")
+    console.log("视频切换change")
     ;(async () => {
       await videoInit()
       await buttonInit()
     })()
   })
 
+  // 监听播放器是否初始化
   videoSwitchObserver.observe(document.getElementById("bilibili-player"), {
     childList: true,
     attributes: true,

@@ -1,0 +1,14 @@
+{
+  "name": "bili-rotate",
+  "version": "1.0.5",
+  "main": "index.js",
+  "author": "yukinotech <yukinotech@gmail.com>",
+  "license": "MIT",
+  "scripts":{
+    "dev":"node ./dev-server/main.js"
+  },
+  "devDependencies": {
+    "@fastify/static": "^5.0.2",
+    "fastify": "^3.29.0"
+  }
+}
