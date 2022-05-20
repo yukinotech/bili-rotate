@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.5
+// @version         1.0.6
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -78,6 +78,7 @@
     realVideo.style["object-fit"] = "contain"
     realVideo.style.height = "auto"
     realVideo.style.width = "auto"
+    realVideo.style.transform = "none"
 
     let { height: videoContainerHeight, width: videoContainerWidth } =
       window.getComputedStyle(video)
@@ -90,7 +91,6 @@
       realVideo.style["max-height"] = "none"
     } else {
       // 原始视频是横屏
-      console.log("222222222222222222222")
       realVideo.style["width"] = "100%"
     }
     console.log("realVideoHeight", realVideoHeight)
@@ -201,11 +201,15 @@
 
   // 播放器父元素的大小发生变化时，处理宽高 回调
   let observer = new MutationObserver((mutationList) => {
-    console.log("播放器的大小change", mutationList)
+    // console.log("播放器的大小change", mutationList)
     // 这里b站会自动重置css，包括video的宽高，可以加延迟解决
-    setTimeout(() => {
-      resetHW()
-    }, 100)
+    if (mutationList.length !== 2) {
+      // === 2时，为播放列表切换视频，应该走视频初始化流程
+      console.log('handle size change')
+      setTimeout(() => {
+        resetHW()
+      }, 100)
+    }
 
     // 调试用代码 begin
 
@@ -230,11 +234,23 @@
 
   // 播放列表里切换视频时，b站会初始化播放器。此处为初始化播放器的回调
   let videoSwitchObserver = new MutationObserver((mutationList) => {
-    console.log("视频切换change")
-    ;(async () => {
-      await videoInit()
-      await buttonInit()
-    })()
+    // console.log("视频切换change", mutationList?.["1"]?.type)
+    // 页面往下滑，会触发画中画功能，造成初始化误判,增加条件判断
+    if (mutationList?.["1"]?.type === "childList") {
+      // 增加一个同步重置, 避免闪烁
+      realVideo.style.transform = "none"
+      ;(async () => {
+        console.log("**** handle init ****")
+        await videoInit()
+        await buttonInit()
+      })()
+    } else if (mutationList?.["1"]?.type === "attributes") {
+      // 触发画中画功能，回来后需要重置宽高
+      console.log("触发画中画功能，回来后需要重置宽高")
+      setTimeout(() => {
+        resetHW()
+      }, 100)
+    }
   })
 
   // 监听播放器是否初始化
