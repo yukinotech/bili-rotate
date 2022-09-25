@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.6
+// @version         1.0.7
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -12,7 +12,7 @@
 // ==/UserScript==
 
 ;(async function () {
-  console.log("rotate init start")
+  console.log("rotate init start xxxxx")
   // ****** utils 函数 ******
   let waitToGet = (fn, time) => {
     return new Promise((resolve, reject) => {
@@ -43,10 +43,8 @@
   // ****** video 旋转处理部分 ******
   // 使用全局变量，因为会出现页面内刷新的情况，变量需要实时指向最新的dom标签，便于赋值刷新
   // 页面层级结构： 1、变量名:dom名  2、外层->里层
-  // videoWrap:div -> video:div -> realVideo:video || realVideo:bwp-video
+  // video:div -> realVideo:video || realVideo:bwp-video
 
-  // videoWrap：包裹player的最外层div
-  let videoWrap
   // video：包裹player的中层div
   let video
   // realVideo：实际video标签，或者bwp-video标签
@@ -58,12 +56,12 @@
 
   // video逻辑初始化部分
   let videoInit = async () => {
-    videoWrap = await waitToGet(() => {
-      return document.getElementsByClassName("bilibili-player-video-wrap")?.[0]
-    }, 600)
 
     video = await waitToGet(() => {
-      return document.getElementsByClassName("bilibili-player-video")?.[0]
+      return (
+        document.getElementsByClassName("bilibili-player-video")?.[0] ||
+        document.getElementsByClassName("bpx-player-video-wrap")?.[0]
+      )
     }, 600)
 
     realVideo = video.childNodes[0]
@@ -147,9 +145,12 @@
   let buttonInit = async () => {
     // 找到播放底栏父元素
     let controlRight = await waitToGet(() => {
-      return document.getElementsByClassName(
-        "bilibili-player-video-control-bottom-right"
-      )?.[0]
+      return (
+        document.getElementsByClassName(
+          "bilibili-player-video-control-bottom-right"
+        )?.[0] ||
+        document.getElementsByClassName("bpx-player-control-bottom-right")?.[0]
+      )
     }, 600)
 
     // 调试用代码 begin ：强制底栏常驻
@@ -175,11 +176,11 @@
     buttonDiv.style.cursor = "pointer"
     buttonDiv.innerHTML = buttonSvg
     buttonDiv.id = "rotate-button"
-    // console.log("beforeinsert")
+
     if (!document.getElementById("rotate-button")) {
       controlRight.insertBefore(buttonDiv, controlRight.childNodes[6])
     }
-    // console.log("after")
+
     buttonDiv.addEventListener("click", rotate)
 
     console.log("rotate init end")
@@ -205,7 +206,7 @@
     // 这里b站会自动重置css，包括video的宽高，可以加延迟解决
     if (mutationList.length !== 2) {
       // === 2时，为播放列表切换视频，应该走视频初始化流程
-      console.log('handle size change')
+      console.log("handle size change")
       setTimeout(() => {
         resetHW()
       }, 100)
