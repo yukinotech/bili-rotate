@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.7
+// @version         1.0.8
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -56,7 +56,6 @@
 
   // video逻辑初始化部分
   let videoInit = async () => {
-
     video = await waitToGet(() => {
       return (
         document.getElementsByClassName("bilibili-player-video")?.[0] ||
@@ -112,11 +111,12 @@
 
     // deg 为当前角度状态
     if (deg === 90 || deg === 270) {
-      // console.log("realVideo_H_W_Ratio", realVideo_H_W_Ratio)
+      console.log("realVideo_H_W_Ratio", realVideo_H_W_Ratio)
       if (realVideo_H_W_Ratio < 1) {
         // 原始视频是横屏
         realVideo.style.transform = `rotate(${deg}deg)`
-        realVideo.style.width = videoContainerHeight
+        // 这里不能太准确，需要后续确认一下
+        realVideo.style.width = numToPx(getNumFromPx(videoContainerHeight) - 5)
       } else {
         // 原始视频是竖屏
         realVideo.style.height = videoContainerWidth

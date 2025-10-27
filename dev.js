@@ -11,5 +11,5 @@
 
 let newScript = document.createElement("script")
 newScript.type = "text/javascript"
-newScript.src = "http://127.0.0.1:3000"
+newScript.src = "http://localhost:3000"
 document.body.appendChild(newScript)
