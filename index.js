@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.1.4
+// @version         1.1.5
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -170,17 +170,20 @@
     // 2D rotate 旋转视频会渲染成黑屏（布局正确但像素不显示）
     realVideo.style.transform = `translate(-50%, -50%) rotate3d(0, 0, 1, ${deg}deg)`
   }
-  // 按钮初始化部分（恢复原版实现：等底栏出现、插入一次、5 秒兜底重插）
-  let buttonInit = async () => {
-    // 找到播放底栏父元素
-    let controlRight = await waitToGet(() => {
-      return (
-        document.getElementsByClassName(
-          "bilibili-player-video-control-bottom-right"
-        )?.[0] ||
-        document.getElementsByClassName("bpx-player-control-bottom-right")?.[0]
-      )
-    }, 600)
+  // 确保旋转按钮存在：b 站会渐进构建/重建控制栏（初次加载、切清晰度、
+  // 进出全屏等），按钮会被连带移除。事件驱动地检查并补回，按钮存在时零开销
+  let ensureRotateButton = () => {
+    if (document.getElementById("rotate-button")) {
+      return
+    }
+    let controlRight =
+      document.getElementsByClassName(
+        "bilibili-player-video-control-bottom-right"
+      )?.[0] ||
+      document.getElementsByClassName("bpx-player-control-bottom-right")?.[0]
+    if (!controlRight) {
+      return
+    }
 
     // 构造button div，绑定事件，并插入文档
     let buttonSvg = `<svg viewBox="0 0 1536 1536" aria-labelledby="rwsi-awesome-repeat-title" id="si-awesome-repeat" width="100%" height="100%"><title id="rwsi-awesome-repeat-title">icon repeat</title><path d="M1536 128v448q0 26-19 45t-45 19h-448q-42 0-59-40-17-39 14-69l138-138Q969 256 768 256q-104 0-198.5 40.5T406 406 296.5 569.5 256 768t40.5 198.5T406 1130t163.5 109.5T768 1280q119 0 225-52t179-147q7-10 23-12 14 0 25 9l137 138q9 8 9.5 20.5t-7.5 22.5q-109 132-264 204.5T768 1536q-156 0-298-61t-245-164-164-245T0 768t61-298 164-245T470 61 768 0q147 0 284.5 55.5T1297 212l130-129q29-31 70-14 39 17 39 59z"></path></svg>`
@@ -193,31 +196,19 @@
     buttonDiv.innerHTML = buttonSvg
     buttonDiv.id = "rotate-button"
 
-    if (!document.getElementById("rotate-button")) {
-      controlRight.insertBefore(buttonDiv, controlRight.childNodes[6])
-    }
-
+    controlRight.insertBefore(buttonDiv, controlRight.childNodes[6] || null)
     buttonDiv.addEventListener("click", rotate)
+  }
+  // 按钮初始化部分（与原版一致：等底栏出现、插入、5 秒兜底）
+  let buttonInit = async () => {
+    // 找到播放底栏父元素
+    await waitToGet(ensureRotateButton, 600)
 
     console.log("rotate init end")
 
     setTimeout(() => {
-      if (!document.getElementById("rotate-button")) {
-        // 存在b站在脚本的初始化之后执行，覆盖脚本，加一次兜底；
-        // 兜底时重新查找底栏，避免拿到已被重建脱离文档的旧节点
-        let controlRightNow =
-          document.getElementsByClassName(
-            "bilibili-player-video-control-bottom-right"
-          )?.[0] ||
-          document.getElementsByClassName("bpx-player-control-bottom-right")?.[0]
-        if (controlRightNow) {
-          controlRightNow.insertBefore(
-            buttonDiv,
-            controlRightNow.childNodes[6]
-          )
-          buttonDiv.addEventListener("click", rotate)
-        }
-      }
+      // 存在b站在脚本的初始化之后执行，覆盖脚本，加一次兜底
+      ensureRotateButton()
     }, 5000)
   }
 
@@ -294,5 +285,15 @@
   videoSwitchObserver.observe(document.getElementById("bilibili-player"), {
     childList: true,
     attributes: true,
+  })
+
+  // 监听播放器子树：控制栏被 b 站重建（渐进构建/切清晰度/进出全屏）导致
+  // 按钮被移除时，立即事件驱动地补回，无需定时轮询
+  let controlObserver = new MutationObserver(() => {
+    ensureRotateButton()
+  })
+  controlObserver.observe(document.getElementById("bilibili-player"), {
+    childList: true,
+    subtree: true,
   })
 })()
