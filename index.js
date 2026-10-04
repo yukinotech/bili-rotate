@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.8
+// @version         1.0.9
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -54,6 +54,22 @@
   // realVideo_H_W_Ratio：视频原始高比宽
   let realVideo_H_W_Ratio
 
+  // 获取视频真实高宽比
+  // 优先读取 videoWidth/videoHeight（视频自带原始尺寸，不受容器和css影响），
+  // 元数据未就绪时退回 computed style 测量，两者都不可用时保持上次结果或默认横屏
+  let getRatio = () => {
+    if (realVideo.videoWidth > 0 && realVideo.videoHeight > 0) {
+      return realVideo.videoHeight / realVideo.videoWidth
+    }
+    let { height, width } = window.getComputedStyle(realVideo)
+    let w = getNumFromPx(width)
+    let h = getNumFromPx(height)
+    if (w > 0 && h > 0) {
+      return h / w
+    }
+    return realVideo_H_W_Ratio || 9 / 16
+  }
+
   // video逻辑初始化部分
   let videoInit = async () => {
     video = await waitToGet(() => {
@@ -63,39 +79,32 @@
       )
     }, 600)
 
-    realVideo = video.childNodes[0]
+    // 精确匹配真实视频标签，避免 childNodes[0] 命中空白文本节点导致后续样式操作报错
+    realVideo = video.querySelector("video,bwp-video") || video.childNodes[0]
 
     video.style.height = "100%"
     video.style.width = "100%"
+    // 作为 realVideo 绝对定位的基准
+    video.style.position = "relative"
     video.style.display = "flex"
     video.style["justify-content"] = "center"
 
     realVideo.style.margin = "0"
     realVideo.style.padding = "0"
     realVideo.style["object-fit"] = "contain"
-    realVideo.style.height = "auto"
-    realVideo.style.width = "auto"
-    realVideo.style.transform = "none"
+    // 绝对定位 + translate(-50%,-50%)：元素中心始终钉在容器中心，
+    // 旋转前后视觉中心稳定，不依赖 flex 对齐和容器宽高比
+    realVideo.style.position = "absolute"
+    realVideo.style.left = "50%"
+    realVideo.style.top = "50%"
+    // 避免 b 站自带的 max-width/max-height 干扰显式计算的宽高
+    realVideo.style["max-height"] = "none"
+    realVideo.style["max-width"] = "none"
 
-    let { height: videoContainerHeight, width: videoContainerWidth } =
-      window.getComputedStyle(video)
-    let { height: realVideoHeight, width: realVideoWidth } =
-      window.getComputedStyle(realVideo)
-    realVideo_H_W_Ratio =
-      getNumFromPx(realVideoHeight) / getNumFromPx(realVideoWidth)
-    if (realVideo_H_W_Ratio >= 1) {
-      // 原始视频是竖屏
-      realVideo.style["max-height"] = "none"
-    } else {
-      // 原始视频是横屏
-      realVideo.style["width"] = "100%"
-    }
-    console.log("realVideoHeight", realVideoHeight)
-    console.log("realVideoWidth", realVideoWidth)
-    console.log("videoContainerHeight", videoContainerHeight)
-    console.log("videoContainerWidth", videoContainerWidth)
+    realVideo_H_W_Ratio = getRatio()
     // deg 标记旋转角度
     deg = 0
+    resetHW()
   }
   // 旋转时回调函数
   let rotate = () => {
@@ -104,42 +113,39 @@
   }
   // 重置宽高
   let resetHW = () => {
+    // 播放器初始化/切换期间节点可能已失效，直接跳过，等 videoInit 重新接管
+    if (!video || !realVideo || !video.isConnected || !realVideo.isConnected) {
+      return
+    }
     let { height: videoContainerHeight, width: videoContainerWidth } =
       window.getComputedStyle(video)
-    let videoContainerHeightNum = getNumFromPx(videoContainerHeight)
-    let videoContainerWidthNum = getNumFromPx(videoContainerWidth)
-
-    // deg 为当前角度状态
-    if (deg === 90 || deg === 270) {
-      console.log("realVideo_H_W_Ratio", realVideo_H_W_Ratio)
-      if (realVideo_H_W_Ratio < 1) {
-        // 原始视频是横屏
-        realVideo.style.transform = `rotate(${deg}deg)`
-        // 这里不能太准确，需要后续确认一下
-        realVideo.style.width = numToPx(getNumFromPx(videoContainerHeight) - 5)
-      } else {
-        // 原始视频是竖屏
-        realVideo.style.height = videoContainerWidth
-        realVideo.style.width = numToPx(
-          videoContainerWidthNum / realVideo_H_W_Ratio
-        )
-        let offsetY = numToPx(
-          (videoContainerWidthNum - videoContainerHeightNum) / -2
-        )
-        realVideo.style.transform = `translate(0,${offsetY}) rotate(${deg}deg)`
-      }
-    } else {
-      if (realVideo_H_W_Ratio < 1) {
-        // 原始视频是横屏
-        realVideo.style.width = videoContainerWidth
-        realVideo.style.transform = `rotate(${deg}deg)`
-      } else {
-        // 原始视频是竖屏
-        realVideo.style.height = "auto"
-        realVideo.style.width = "auto"
-        realVideo.style.transform = `rotate(${deg}deg)`
-      }
+    let containerH = getNumFromPx(videoContainerHeight)
+    let containerW = getNumFromPx(videoContainerWidth)
+    if (!(containerH > 0) || !(containerW > 0)) {
+      return
     }
+
+    // 每次都重新校验宽高比：视频元数据可能晚于首次初始化到达，
+    // 切集/切清晰度后比例也可能变化，用旧比例会走错分支导致黑屏
+    realVideo_H_W_Ratio = getRatio()
+    let ratio = realVideo_H_W_Ratio
+
+    // 计算“贴合容器(contain)”的元素宽高：
+    // 未旋转(0/180)：视觉宽高 = 元素宽高
+    // 旋转90/270：视觉宽 = 元素高，视觉高 = 元素宽
+    let elWidth
+    if (deg === 90 || deg === 270) {
+      elWidth = Math.min(containerH, containerW / ratio)
+    } else {
+      elWidth = Math.min(containerW, containerH / ratio)
+    }
+    let elHeight = elWidth * ratio
+
+    realVideo.style.width = numToPx(elWidth)
+    realVideo.style.height = numToPx(elHeight)
+    // translate 先把元素中心对到容器中心，rotate 再绕元素中心旋转，
+    // 任意角度、任意容器比例下画面都居中且完整可见
+    realVideo.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`
   }
   // 按钮初始化部分
   let buttonInit = async () => {
@@ -238,8 +244,10 @@
     // console.log("视频切换change", mutationList?.["1"]?.type)
     // 页面往下滑，会触发画中画功能，造成初始化误判,增加条件判断
     if (mutationList?.["1"]?.type === "childList") {
-      // 增加一个同步重置, 避免闪烁
-      realVideo.style.transform = "none"
+      // 增加一个同步重置, 避免闪烁；保持元素居中，而不是回到偏移的左上角
+      if (realVideo && realVideo.isConnected) {
+        realVideo.style.transform = "translate(-50%, -50%)"
+      }
       ;(async () => {
         console.log("**** handle init ****")
         await videoInit()
