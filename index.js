@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.1.0
+// @version         1.1.1
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -53,6 +53,10 @@
   let deg
   // realVideo_H_W_Ratio：视频原始高比宽
   let realVideo_H_W_Ratio
+  // 容器尺寸监听器：进入真全屏时 b 站播放器有展开动画，
+  // MutationObserver 的延迟重算可能量到过渡中的尺寸，导致画面不铺满；
+  // ResizeObserver 会在容器实际尺寸稳定后再次触发，保证最终贴合
+  let containerResizeObserver
 
   // 获取视频真实高宽比
   // 优先读取 videoWidth/videoHeight（视频自带原始尺寸，不受容器和css影响），
@@ -111,6 +115,16 @@
     // deg 标记旋转角度
     deg = 0
     resetHW()
+
+    // 监听容器实际尺寸变化（真全屏动画、窗口缩放、宽屏模式切换等），
+    // 结束尺寸稳定后自动重新适配；先断开旧监听避免重复叠加
+    if (containerResizeObserver) {
+      containerResizeObserver.disconnect()
+    }
+    containerResizeObserver = new ResizeObserver(() => {
+      resetHW()
+    })
+    containerResizeObserver.observe(video)
   }
   // 旋转时回调函数
   let rotate = () => {
