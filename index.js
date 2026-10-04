@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.0.9
+// @version         1.1.0
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -100,6 +100,12 @@
     // 避免 b 站自带的 max-width/max-height 干扰显式计算的宽高
     realVideo.style["max-height"] = "none"
     realVideo.style["max-width"] = "none"
+    // mask 会让视频脱离浏览器的硬件视频叠加层（MPO）渲染：
+    // Edge/AMD 显卡下叠加层无法合成被旋转的视频平面，90°/270° 会整块黑屏
+    realVideo.style.webkitMaskImage = "linear-gradient(#fff, #fff)"
+    realVideo.style.maskImage = "linear-gradient(#fff, #fff)"
+    // 容器开启 3D 上下文，配合下方 rotate3d 使用
+    video.style.perspective = "10000px"
 
     realVideo_H_W_Ratio = getRatio()
     // deg 标记旋转角度
@@ -144,8 +150,10 @@
     realVideo.style.width = numToPx(elWidth)
     realVideo.style.height = numToPx(elHeight)
     // translate 先把元素中心对到容器中心，rotate 再绕元素中心旋转，
-    // 任意角度、任意容器比例下画面都居中且完整可见
-    realVideo.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`
+    // 任意角度、任意容器比例下画面都居中且完整可见。
+    // 用 rotate3d 走 3D 合成路径：Edge/AMD 显卡开启硬件视频叠加层时，
+    // 2D rotate 旋转视频会渲染成黑屏（布局正确但像素不显示）
+    realVideo.style.transform = `translate(-50%, -50%) rotate3d(0, 0, 1, ${deg}deg)`
   }
   // 按钮初始化部分
   let buttonInit = async () => {
