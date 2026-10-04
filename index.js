@@ -4,7 +4,7 @@
 // @github          https://github.com/yukinotech/bili-rotate
 // @name            bilibili b站 视频 旋转
 // @name:en         bilibili player rotate
-// @version         1.1.3
+// @version         1.1.4
 // @description     bilibili 视频 旋转 插件
 // @description:en  bilibili b站 player rotate plugin
 // @include         http*://*.bilibili.com/video/*
@@ -77,15 +77,15 @@
   // video逻辑初始化部分
   let videoInit = async () => {
     video = await waitToGet(() => {
-      return (
+      const wrap =
         document.getElementsByClassName("bilibili-player-video")?.[0] ||
         document.getElementsByClassName("bpx-player-video-wrap")?.[0]
-      )
+      // 站内跳转（SPA 切集/点推荐）时容器先出现、视频标签晚几秒才插入，
+      // 必须等真实视频标签出现，否则拿到文本节点设置样式会抛错
+      return wrap && wrap.querySelector("video,bwp-video") ? wrap : null
     }, 600)
 
-    // 优先取真实视频标签，兜底取第一个子节点（保持与原版一致的时序，不做额外等待）
-    realVideo =
-      video.querySelector("video,bwp-video") || video.childNodes[0]
+    realVideo = video.querySelector("video,bwp-video")
 
     video.style.height = "100%"
     video.style.width = "100%"
@@ -223,8 +223,11 @@
 
   // ****** 第一次实际执行部分 ******
 
-  await videoInit()
-  await buttonInit()
+  // 按钮与视频初始化并行：按钮只依赖控制栏，不必等视频标签加载完成
+  await Promise.all([
+    videoInit().catch((e) => console.log("video init error", e)),
+    buttonInit(),
+  ])
 
   // ****** 监听部分 ******
 
@@ -270,10 +273,13 @@
       if (realVideo && realVideo.isConnected) {
         realVideo.style.transform = "translate(-50%, -50%)"
       }
+      // 站内切换视频时按钮与视频初始化并行执行
       ;(async () => {
         console.log("**** handle init ****")
-        await videoInit()
-        await buttonInit()
+        await Promise.all([
+          videoInit().catch((e) => console.log("video init error", e)),
+          buttonInit(),
+        ])
       })()
     } else if (mutationList?.["1"]?.type === "attributes") {
       // 触发画中画功能，回来后需要重置宽高
